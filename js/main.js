@@ -7,13 +7,14 @@ console.log(expressed);
 
 //begin script when window loads
 window.onload = setMap();
+window.onload = donut();
 
 //set up choropleth map
 function setMap(){
 
   //map frame dimensions
-   var width = 1200,
-       height = 700;
+   var width = 800,
+       height = 500;
 
    //create new svg container for the map
    var map = d3.select("body")
@@ -27,7 +28,7 @@ function setMap(){
         .center([0, 42.67])
         .rotate([98, 4, 0])
         .parallels([45.00, 45.5])
-        .scale(1500)
+        .scale(1000)
         .translate([width / 2, height / 2]);
 
        var path = d3.geoPath()
@@ -56,10 +57,114 @@ function setMap(){
 
             setEnumerationUnits(unitedStates, map, path, colorScale);
 
-            donut(csvData);
+
 
 
     };
+};
+
+
+// original working donut function
+function donut(){
+
+  //var attributes = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Population", "Total Accidents"];
+
+  var margin = {top:20, right: 20, bottom: 20, left: 20},
+      width = 700 - margin.right - margin.left,
+      height = 700 - margin.top - margin.bottom
+      radius = width/2;
+
+  var arc = d3.arc()
+      .innerRadius(100)
+      .outerRadius(200);
+
+  var labelArc = d3.arc()
+      .outerRadius(240)
+      .innerRadius(200);
+
+  var pie = d3.pie()
+      .value(function(d){
+          return d.Establishments;
+      });
+
+
+  var svg = d3.select("body")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .append("g")
+      .attr("transform", "translate("+ width/2 +","+ height/2 +")");
+
+
+  //import data
+  d3.csv("data/FinalAlcoholNormalized_2014.csv", function(error, data){
+      if (error) throw error;
+
+      //parse data
+      data.forEach(function(d){
+          d.Establishments = +d.Establishments;
+          d.State = d.State;
+      });
+
+      // append g elements (arc)
+      var g = svg.selectAll(".arc")
+          .data(pie(data))
+          .enter().append("g")
+          .attr("class", "arc");
+
+      var colorScale = makeColorScale(data);
+
+      var color = d3.scaleOrdinal(d3.schemeCategory20);
+          // .range(["red","orange","yellow","green","blue","indigo","violet"]);
+
+      g.append("text")
+          .attr("x", 0)
+          .attr("y", 0 )
+          .attr("text-anchor", "middle")
+          .style("font-size", "12px")
+          .html("Alcohol Serving Establishments per 100,000 people");
+
+      console.log(data);
+
+      // append path of the arc
+      g.append("path")
+          .attr("d", arc)
+          .style("fill",function(d){ return choropleth(d.data, colorScale);})
+          // .style("fill", function(d){ return color(d.data.State);})
+          .transition()
+          .ease(d3.easeLinear)
+          .duration(2000)
+          .attrTween("d", pieTween);
+
+      // // append the text
+      // g.append("text")
+      //     .transition()
+      //     .ease(d3.easeLinear)
+      //     .duration(2000)
+      //     .attr("transform", function(d){ return "translate(" + labelArc.centroid(d) + ")";})
+      //     .attr("dy", ".35em")
+      //     .text(function(d) {return d.data.State;});
+
+        g.append("text")
+              .transition()
+              .ease(d3.easeLinear)
+              .duration(2000)
+              .attr("transform", function(d) {
+              var midAngle = d.startAngle/2 + d.endAngle/2;
+              return "translate(" + labelArc.centroid(d)[0] + "," + labelArc.centroid(d)[1] + ") rotate(-90) rotate(" + (midAngle * 180/Math.PI) + ")"; })
+              .attr("dy", ".35em")
+              .attr('text-anchor','start')
+              .text(function(d) {return (d.data.State+":"+Math.round(d.data.Establishments));});
+
+
+  })
+
+  function pieTween(b) {
+    b.innerRadius = 0;
+    var i = d3.interpolate({startAngle: 0, endAngle: 0}, b);
+    return function(t) {return arc(i(t));};
+  };
+
 };
 
 function setGraticule(map,path){
@@ -103,6 +208,19 @@ function joinData(states, csvData){
     return states;
 };
 
+function choropleth(props, colorScale){
+    //make sure attribute value is a number
+    console.log(props);
+    var val = parseFloat(props[expressed]);
+    //if attribute value exists, assign a color; otherwise assign gray
+    if (typeof val == 'number' && !isNaN(val)){
+        return colorScale(val);
+    } else {
+
+        return "#CCC";
+    };
+};
+
 function setEnumerationUnits(unitedStates, map, path, colorScale){
   var states = map.selectAll(".states")
   .data(unitedStates)
@@ -113,7 +231,7 @@ function setEnumerationUnits(unitedStates, map, path, colorScale){
   })
   .attr("d", path)
   .style("fill", function(d){
-    return colorScale(d.properties[expressed]);
+    return choropleth(d.properties,colorScale);
   });
 };
 
@@ -152,107 +270,6 @@ function makeColorScale(data){
 
     return colorScale;
 };
-
-
-
-  // original working donut function
-  function donut(){
-
-    //var attributes = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Population", "Total Accidents"];
-
-    var margin = {top:20, right: 20, bottom: 20, left: 20},
-        width = 700 - margin.right - margin.left,
-        height = 700 - margin.top - margin.bottom
-        radius = width/2;
-
-    var arc = d3.arc()
-        .innerRadius(100)
-        .outerRadius(200);
-
-    var labelArc = d3.arc()
-        .outerRadius(260)
-        .innerRadius(200);
-
-    var pie = d3.pie()
-        .value(function(d){
-            return d.Establishments;
-        });
-
-
-    var svg = d3.select("body")
-        .append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .append("g")
-        .attr("transform", "translate("+ width/2 +","+ height/2 +")");
-
-
-    //import data
-    d3.csv("data/FinalAlcoholNormalized_2014.csv", function(error, data){
-        if (error) throw error;
-
-        //parse data
-        data.forEach(function(d){
-            d.Establishments = +d.Establishments;
-            d.State = d.State;
-        });
-
-        // append g elements (arc)
-        var g = svg.selectAll(".arc")
-            .data(pie(data))
-            .enter().append("g")
-            .attr("class", "arc");
-
-        var color = d3.scaleOrdinal(d3.schemeCategory20);
-            // .range(["red","orange","yellow","green","blue","indigo","violet"]);
-
-        g.append("text")
-            .attr("x", 0)
-            .attr("y", 0 )
-            .attr("text-anchor", "middle")
-            .style("font-size", "12px")
-            .text("Alcohol Serving Establishments per 100,000 people");
-
-        // append path of the arc
-        g.append("path")
-            .attr("d", arc)
-            .style("fill", "tomato")
-            // .style("fill", function(d){ return color(d.data.State);})
-            .transition()
-            .ease(d3.easeLinear)
-            .duration(2000)
-            .attrTween("d", pieTween);
-
-        // // append the text
-        // g.append("text")
-        //     .transition()
-        //     .ease(d3.easeLinear)
-        //     .duration(2000)
-        //     .attr("transform", function(d){ return "translate(" + labelArc.centroid(d) + ")";})
-        //     .attr("dy", ".35em")
-        //     .text(function(d) {return d.data.State;});
-
-          g.append("text")
-                .transition()
-                .ease(d3.easeLinear)
-                .duration(2000)
-                .attr("transform", function(d) {
-  	  	        var midAngle = d.endAngle < Math.PI ? d.startAngle/2 + d.endAngle/2 : d.startAngle/2  + d.endAngle/2 + Math.PI ;
-  	  	        return "translate(" + labelArc.centroid(d)[0] + "," + labelArc.centroid(d)[1] + ") rotate(-90) rotate(" + (midAngle * 180/Math.PI) + ")"; })
-  	            .attr("dy", ".35em")
-  	            .attr('text-anchor','start')
-                .text(function(d) {return (d.data.State+":"+Math.round(d.data.Establishments));});
-
-
-    })
-
-    function pieTween(b) {
-      b.innerRadius = 0;
-      var i = d3.interpolate({startAngle: 0, endAngle: 0}, b);
-      return function(t) {return arc(i(t));};
-    };
-
-  };
 
 
 
