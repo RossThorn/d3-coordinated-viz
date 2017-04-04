@@ -1,9 +1,9 @@
 (function(){
 
 //pseudo-global variables
-var attrArray = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Population", "Total Accidents"]; //list of attributes
-var expressed = attrArray[2]; //initial attribute
-console.log(expressed);
+var attrArray = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Population", "Total_Accidents"]; //list of attributes
+var expressed = attrArray[0]; //initial attribute
+
 
 //begin script when window loads
 window.onload = setMap();
@@ -75,16 +75,16 @@ function donut(){
       radius = width/2;
 
   var arc = d3.arc()
-      .innerRadius(100)
+      .innerRadius(150)
       .outerRadius(200);
 
   var labelArc = d3.arc()
-      .outerRadius(240)
+      .outerRadius(220)
       .innerRadius(200);
 
   var pie = d3.pie()
       .value(function(d){
-          return d.Establishments;
+          return d.Alc_Imp_Accidents;
       });
 
 
@@ -95,6 +95,12 @@ function donut(){
       .append("g")
       .attr("transform", "translate("+ width/2 +","+ height/2 +")");
 
+  var lines =   svg.append("g")
+  	.attr("class", "lines");
+
+  var labels = svg.append("g")
+  	.attr("class", "labels");
+
 
   //import data
   d3.csv("data/FinalAlcoholNormalized_2014.csv", function(error, data){
@@ -102,7 +108,7 @@ function donut(){
 
       //parse data
       data.forEach(function(d){
-          d.Establishments = +d.Establishments;
+          d.Establishments = +d.Alc_Imp_Accidents;
           d.State = d.State;
       });
 
@@ -117,22 +123,21 @@ function donut(){
       var color = d3.scaleOrdinal(d3.schemeCategory20);
           // .range(["red","orange","yellow","green","blue","indigo","violet"]);
 
+      //
       g.append("text")
           .attr("x", 0)
           .attr("y", 0 )
           .attr("text-anchor", "middle")
           .style("font-size", "12px")
-          .html("Alcohol Serving Establishments per 100,000 people");
+          .html("Alcohol-impaired Incidents per 100 Fatal Traffic Accidents");
 
-      console.log(data);
 
       // append path of the arc
       g.append("path")
           .attr("d", arc)
           .style("fill",function(d){ return choropleth(d.data, colorScale);})
-          // .style("fill", function(d){ return color(d.data.State);})
           .transition()
-          .ease(d3.easeLinear)
+          .ease(d3.easeExp)
           .duration(2000)
           .attrTween("d", pieTween);
 
@@ -147,14 +152,39 @@ function donut(){
 
         g.append("text")
               .transition()
+              .delay(2000)
               .ease(d3.easeLinear)
-              .duration(2000)
+              .duration(500)
               .attr("transform", function(d) {
-              var midAngle = d.startAngle/2 + d.endAngle/2;
+              var midAngle = d.endAngle < Math.PI ? d.startAngle/2 + d.endAngle/2 : d.startAngle/2  + d.endAngle/2 + Math.PI ;
               return "translate(" + labelArc.centroid(d)[0] + "," + labelArc.centroid(d)[1] + ") rotate(-90) rotate(" + (midAngle * 180/Math.PI) + ")"; })
               .attr("dy", ".35em")
-              .attr('text-anchor','start')
-              .text(function(d) {return (d.data.State+":"+Math.round(d.data.Establishments));});
+              .attr('text-anchor',function(midAngle){
+                console.log(midAngle);
+                var anchorLocation = midAngle["endAngle"] < Math.PI ? "start" : "end"
+                return anchorLocation
+              })
+              .text(function(d) {return (d.data.State+": "+Math.round(d.data.Establishments));});
+
+
+          // var polyline = svg.select(".lines").selectAll("polyline")
+          // .data(pie(data), function(d){ return d.data.label });
+          //
+          // polyline.enter()
+          //     .append("polyline");
+          //
+          // polyline.transition().duration(1000)
+          //     .attrTween("points", function(d){
+          //         this._current = this._current || d;
+          //         var interpolate = d3.interpolate(this._current, d);
+          //         this._current = interpolate(0);
+          //         return function(t) {
+          //             var d2 = interpolate(t);
+          //             var pos = outerArc.centroid(d2);
+          //             pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+          //             return [arc.centroid(d2), outerArc.centroid(d2), pos];
+          //         };
+          //     });
 
 
   })
@@ -210,7 +240,7 @@ function joinData(states, csvData){
 
 function choropleth(props, colorScale){
     //make sure attribute value is a number
-    console.log(props);
+
     var val = parseFloat(props[expressed]);
     //if attribute value exists, assign a color; otherwise assign gray
     if (typeof val == 'number' && !isNaN(val)){
