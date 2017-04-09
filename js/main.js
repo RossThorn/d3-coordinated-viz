@@ -56,6 +56,7 @@ function setMap(){
             var colorScale = makeColorScale(csvData);
 
             setEnumerationUnits(unitedStates, map, path, colorScale);
+            createDropdown(csvData);
 
 
 
@@ -151,8 +152,8 @@ function donut(){
       //     .text(function(d) {return d.data.State;});
 
         g.append("text")
-              .transition()
-              .delay(2000)
+               .transition()
+               .delay(2000)
               .ease(d3.easeLinear)
               .duration(500)
               .attr("transform", function(d) {
@@ -160,7 +161,6 @@ function donut(){
               return "translate(" + labelArc.centroid(d)[0] + "," + labelArc.centroid(d)[1] + ") rotate(-90) rotate(" + (midAngle * 180/Math.PI) + ")"; })
               .attr("dy", ".35em")
               .attr('text-anchor',function(midAngle){
-                console.log(midAngle);
                 var anchorLocation = midAngle["endAngle"] < Math.PI ? "start" : "end"
                 return anchorLocation
               })
@@ -301,6 +301,45 @@ function makeColorScale(data){
     return colorScale;
 };
 
+//function to create a dropdown menu for attribute selection
+function createDropdown(csvData){
+    //add select element
+    var dropdown = d3.select("body")
+        .append("select")
+        .attr("class", "dropdown")
+        .on("change", function(){
+            changeAttribute(this.value,csvData)
+        });
+
+    //add initial option
+    var titleOption = dropdown.append("option")
+        .attr("class", "titleOption")
+        .attr("disabled", "true")
+        .text("Select Attribute");
+
+    //add attribute name options
+    var attrOptions = dropdown.selectAll("attrOptions")
+        .data(attrArray)
+        .enter()
+        .append("option")
+        .attr("value", function(d){ return d })
+        .text(function(d){ return d });
+};
+
+//dropdown change listener handler
+function changeAttribute(attribute, csvData){
+    //change the expressed attribute
+    expressed = attribute;
+
+    //recreate the color scale
+    var colorScale = makeColorScale(csvData);
+
+    //recolor enumeration units
+    var states = d3.selectAll(".states")
+        .style("fill", function(d){
+            return choropleth(d.properties, colorScale)
+        });
+};
 
 
 })();
