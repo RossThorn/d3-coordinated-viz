@@ -1,13 +1,14 @@
 (function(){
 
 //pseudo-global variables
-var attrArray = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Population", "Total_Accidents"]; //list of attributes
+var attrArray = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Total_Accidents"]; //list of attributes
 var expressed = attrArray[0]; //initial attribute
+var pie, arc, labelArc,chartTitle,colorScale;
 
 
 //begin script when window loads
 window.onload = setMap();
-window.onload = donut();
+window.onload = donut(expressed);
 
 //set up choropleth map
 function setMap(){
@@ -25,7 +26,7 @@ function setMap(){
 
    //create Albers equal area conic projection centered on France
        var projection = d3.geoAlbers()
-        .center([0, 42.67])
+        .center([0, 43.5])
         .rotate([98, 4, 0])
         .parallels([45.00, 45.5])
         .scale(1000)
@@ -36,7 +37,7 @@ function setMap(){
 
     //use d3.queue to parallelize asynchronous data loading
     d3.queue()
-        .defer(d3.csv, "data/FinalAlcoholNormalized_2014.csv") //load attributes from csv
+        .defer(d3.csv, "data/FinalAlcoholNormalizedContiguous_2014.csv") //load attributes from csv
         .defer(d3.json, "data/StatesTopo.topojson") //load spatial data
         .await(callback);
 
@@ -45,15 +46,14 @@ function setMap(){
             setGraticule(map,path)
 
             // translate topojson to GeoJSON
-            var unitedStates = topojson.feature(usa, usa.objects.States).features;
+            var unitedStates = topojson.feature(usa, usa.objects.StatesTopo).features;
+
 
                 //join csv data to GeoJSON enumeration units
             unitedStates = joinData(unitedStates, csvData);
 
-            // console.log(csvData,usa);
-            // console.log(unitedStates);
-
-            var colorScale = makeColorScale(csvData);
+            // make color
+             colorScale = makeColorScale(csvData);
 
             setEnumerationUnits(unitedStates, map, path, colorScale);
             createDropdown(csvData);
@@ -66,35 +66,34 @@ function setMap(){
 
 
 // original working donut function
-function donut(){
+function donut(expressed){
 
-  //var attributes = ["Alc_Imp_Accidents", "DUI_Count", "Establishments", "Population", "Total Accidents"];
-
-  var margin = {top:20, right: 20, bottom: 20, left: 20},
-      width = 700 - margin.right - margin.left,
-      height = 700 - margin.top - margin.bottom
+  var width = 680 ,
+      height = 680 ,
       radius = width/2;
 
-  var arc = d3.arc()
+   arc = d3.arc()
       .innerRadius(150)
       .outerRadius(200);
 
-  var labelArc = d3.arc()
+   labelArc = d3.arc()
       .outerRadius(220)
       .innerRadius(200);
 
-  var pie = d3.pie()
+    pie = d3.pie()
       .value(function(d){
-          return d.Alc_Imp_Accidents;
+          return d[expressed];
       });
 
 
   var svg = d3.select("body")
       .append("svg")
+      .attr("class", "chart")
       .attr("width", width)
       .attr("height", height)
       .append("g")
       .attr("transform", "translate("+ width/2 +","+ height/2 +")");
+
 
   var lines =   svg.append("g")
   	.attr("class", "lines");
@@ -104,12 +103,12 @@ function donut(){
 
 
   //import data
-  d3.csv("data/FinalAlcoholNormalized_2014.csv", function(error, data){
+  d3.csv("data/FinalAlcoholNormalizedContiguous_2014.csv", function(error, data){
       if (error) throw error;
 
       //parse data
       data.forEach(function(d){
-          d.Establishments = +d.Alc_Imp_Accidents;
+          d.Establishments = +d[expressed];
           d.State = d.State;
       });
 
@@ -121,35 +120,29 @@ function donut(){
 
       var colorScale = makeColorScale(data);
 
-      var color = d3.scaleOrdinal(d3.schemeCategory20);
-          // .range(["red","orange","yellow","green","blue","indigo","violet"]);
-
-      //
-      g.append("text")
-          .attr("x", 0)
-          .attr("y", 0 )
-          .attr("text-anchor", "middle")
-          .style("font-size", "12px")
-          .html("Alcohol-impaired Incidents per 100 Fatal Traffic Accidents");
-
 
       // append path of the arc
-      g.append("path")
+      var arcPath = g.append("path")
           .attr("d", arc)
-          .style("fill",function(d){ return choropleth(d.data, colorScale);})
+          .attr("class", function(d){
+
+              return "arc " + d.data.State.replace(/ /g, "_");
+          });
+
+          arcPath.style("fill",function(d){ return choropleth(d.data, colorScale);})
+          .on("mouseover", function(d){
+                    highlight(d.data);
+                })
+          .on("mouseout", function(d){
+           dehighlight(d.data);
+             })
+          .on("mousemove", moveLabel)
+
           .transition()
           .ease(d3.easeExp)
           .duration(2000)
           .attrTween("d", pieTween);
 
-      // // append the text
-      // g.append("text")
-      //     .transition()
-      //     .ease(d3.easeLinear)
-      //     .duration(2000)
-      //     .attr("transform", function(d){ return "translate(" + labelArc.centroid(d) + ")";})
-      //     .attr("dy", ".35em")
-      //     .text(function(d) {return d.data.State;});
 
         g.append("text")
                .transition()
@@ -164,27 +157,64 @@ function donut(){
                 var anchorLocation = midAngle["endAngle"] < Math.PI ? "start" : "end"
                 return anchorLocation
               })
-              .text(function(d) {return (d.data.State+": "+Math.round(d.data.Establishments));});
+              .text(function(d) {return (d.data.State+": "+Math.round(d.data[expressed]));});
+
+                if (expressed == attrArray[0]){
+                  chartTitle = "Number of Fatal Alcohol-Impaired Accidents"
+                  chartTitle2 = "per 100 Fatal Traffic Accidents"
+                }
+                else if (expressed == attrArray[1]){
+                  chartTitle = "Number of DUI Arrests per 100,000 People"
+                  chartTitle2 = ""
+                }
+                else if (expressed == attrArray[2]){
+                  chartTitle = "Number of Alcohol-Serving Establishments"
+                  chartTitle2 = "per 100,000 People"
+                }
+                else if (expressed == attrArray[3]){
+                  chartTitle = "Number of Fatal Traffic Incidents"
+                  chartTitle2= "per 100,000 People"
+                };
+
+              // svg.append("text")
+              // .attr("x", 0)
+              // .attr("y", 0 )
+              // .attr("text-anchor", "middle")
+              // .style("font-size", "15px")
+              // .style("font-weight","bold")
+              // .html(chartTitle);
+              //
+              // svg.append("text")
+              // .attr("x", 0)
+              // .attr("y", 0 )
+              // .attr("dy","1.2em")
+              // .attr("text-anchor", "middle")
+              // .style("font-size", "15px")
+              // .style("font-weight","bold")
+              // .html(chartTitle2);
+
+              svg.append("text")
+              .attr("x", 0)
+              .attr("y", 15 )
+              .attr("text-anchor", "middle")
+              .style("font-size", "60px")
+              .style("font-weight","bold")
+              .html("2014");
 
 
-          // var polyline = svg.select(".lines").selectAll("polyline")
-          // .data(pie(data), function(d){ return d.data.label });
-          //
-          // polyline.enter()
-          //     .append("polyline");
-          //
-          // polyline.transition().duration(1000)
-          //     .attrTween("points", function(d){
-          //         this._current = this._current || d;
-          //         var interpolate = d3.interpolate(this._current, d);
-          //         this._current = interpolate(0);
-          //         return function(t) {
-          //             var d2 = interpolate(t);
-          //             var pos = outerArc.centroid(d2);
-          //             pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
-          //             return [arc.centroid(d2), outerArc.centroid(d2), pos];
-          //         };
-          //     });
+          var desc = arcPath.append("desc")
+          .text(function(d){
+
+              var fill = choropleth(d.data, colorScale)
+              return '{"fill":"'+fill+'"}';
+          });
+
+          var title = d3.select("body")
+          .append("div")
+          .attr("class","large-title")
+          .attr("style","max-width:800px")
+          .html("<h1>"+chartTitle+" " + chartTitle2 +"</h1>");
+
 
 
   })
@@ -257,12 +287,33 @@ function setEnumerationUnits(unitedStates, map, path, colorScale){
   .enter()
   .append("path")
   .attr("class", function(d){
-      return "states " + d.properties.name;
+      stateName = d.properties.name;
+      return "states " + d.properties.name.replace(/ /g, "_");
   })
   .attr("d", path)
   .style("fill", function(d){
     return choropleth(d.properties,colorScale);
-  });
+  })
+  .on("mouseover", function(d){
+            highlight(d.properties);
+        })
+  .on("mouseout", function(d){
+           dehighlight(d.properties);
+       })
+  .on("mousemove", moveLabel);
+   var desc = states.append("desc")
+   .text(function(d){
+
+       var fill = choropleth(d.properties, colorScale)
+       return '{"fill":"'+fill+'"}';
+   });
+
+   var sources = d3.select("body")
+      .append("div")
+      .attr("class","source")
+      .html("<span>Sources:<br>Total Population, Total Drinking Establishments - U.S. Census Bureau<br>DUI Arrests - Statistics Brain<br>Total Traffic Fatalities, Alcohol related Traffic Fatalities - The National Highway Traffic Safety Administration</span>")
+
+
 };
 
 function makeColorScale(data){
@@ -312,10 +363,10 @@ function createDropdown(csvData){
         });
 
     //add initial option
-    var titleOption = dropdown.append("option")
-        .attr("class", "titleOption")
-        .attr("disabled", "true")
-        .text("Select Attribute");
+    // var titleOption = dropdown.append("option")
+    //     .attr("class", "titleOption")
+    //     .attr("disabled", "true")
+    //     .text("Select Attribute");
 
     //add attribute name options
     var attrOptions = dropdown.selectAll("attrOptions")
@@ -323,7 +374,25 @@ function createDropdown(csvData){
         .enter()
         .append("option")
         .attr("value", function(d){ return d })
-        .text(function(d){ return d });
+        .text(function(d){ return d })
+        .text(function(d){
+          if (d == attrArray[0]){
+            dropMenu = "Alcohol-Impaired Accidents"
+            return dropMenu
+          }
+          else if (d == attrArray[1]){
+            dropMenu = "DUI Arrests"
+            return dropMenu
+          }
+          else if (d == attrArray[2]){
+            dropMenu = "Alcohol-Serving Establishments"
+            return dropMenu
+          }
+          else if (d == attrArray[3]){
+            dropMenu = "Fatal Traffic Incidents"
+            return dropMenu
+          };
+        });
 };
 
 //dropdown change listener handler
@@ -336,10 +405,115 @@ function changeAttribute(attribute, csvData){
 
     //recolor enumeration units
     var states = d3.selectAll(".states")
+        .transition()
+        .duration(1000)
         .style("fill", function(d){
             return choropleth(d.properties, colorScale)
         });
+
+    var desc = states.select("desc")
+    .text(function(d){
+
+        var fill = choropleth(d.properties, colorScale)
+        return '{"fill":"'+fill+'"}';
+    });
+
+    var removeArcs = d3.select(".chart").remove();
+
+    d3.select(".large-title").remove();
+
+    donut(expressed)
+
+
 };
+
+function highlight(props){
+    //change stroke
+    var selected = d3.selectAll("." + props.State.replace(/ /g, "_"))
+        .style("fill", "cyan");
+
+        setLabel(props);
+};
+
+
+//function to reset the element style on mouseout
+function dehighlight(props){
+    var selected = d3.selectAll("." + props.State.replace(/ /g, "_"))
+        .style("fill", function(){
+            return getStyle(this, "fill")
+        });
+
+    function getStyle(element, styleName){
+
+        var styleText = d3.select(element)
+            .select("desc")
+            .text();
+
+        var styleObject = JSON.parse(styleText);
+
+        return styleObject[styleName];
+    };
+    d3.select(".infolabel")
+       .remove();
+};
+
+//function to create dynamic label
+function setLabel(props){
+
+  if (expressed == attrArray[0]){
+    labelTitle = "Alcohol-Impaired Accidents"
+  }
+  else if (expressed == attrArray[1]){
+    labelTitle = "DUI Arrests"
+  }
+  else if (expressed == attrArray[2]){
+    labelTitle = "Alcohol-Serving Establishments"
+  }
+  else if (expressed == attrArray[3]){
+    labelTitle = "Fatal Traffic Incidents"
+  };
+    //label content
+    var labelAttribute = "<h1>" + Math.round(props[expressed]) +
+        "</h1><b>" + labelTitle + "</b>";
+
+
+    //create info label div
+    var infolabel = d3.select("body")
+        .append("div")
+        .attr("class", "infolabel")
+        .attr("id", props.State + "_label")
+        .html(labelAttribute);
+
+    var regionName = infolabel.append("div")
+        .attr("class", "labelname")
+        .html(props.State);
+
+};
+
+//function to move info label with mouse
+function moveLabel(){
+    //get width of label
+    var labelWidth = d3.select(".infolabel")
+        .node()
+        .getBoundingClientRect()
+        .width;
+
+    //use coordinates of mousemove event to set label coordinates
+    var x1 = d3.event.clientX + 10,
+        y1 = d3.event.clientY - 75,
+        x2 = d3.event.clientX - labelWidth - 10,
+        y2 = d3.event.clientY + 25;
+
+    //horizontal label coordinate, testing for overflow
+    var x = d3.event.clientX > window.innerWidth - labelWidth - 20 ? x2 : x1;
+    //vertical label coordinate, testing for overflow
+    var y = d3.event.clientY < 75 ? y2 : y1;
+
+    d3.select(".infolabel")
+        .style("left", x + "px")
+        .style("top", y + "px");
+};
+
 
 
 })();
