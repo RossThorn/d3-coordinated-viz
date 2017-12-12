@@ -110,8 +110,14 @@ option {
   font-weight: bold;
   text-align:left;
   color: white;
-  font-size: 50px;
+  font-size: 30px;
   font-family:"Arial Black", Gadget, sans-serif;
+}
+
+.large-title {
+  position: absolute;
+  top: 430px;
+  left: 11px;
 }
 
 body {
@@ -120,7 +126,7 @@ body {
 
 .source {
     position: absolute;
-    top: 475px;
+    top: 415px;
     left: 11px;
     z-index: 10;
     font-family: sans-serif;

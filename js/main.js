@@ -14,8 +14,8 @@ window.onload = donut(expressed);
 function setMap(){
 
   //map frame dimensions
-   var width = 800,
-       height = 500;
+   var width = 700,
+       height = 400;
 
    //create new svg container for the map
    var map = d3.select("body")
@@ -29,7 +29,7 @@ function setMap(){
         .center([0, 43.5])
         .rotate([98, 4, 0])
         .parallels([45.00, 45.5])
-        .scale(1000)
+        .scale(800)
         .translate([width / 2, height / 2]);
 
        var path = d3.geoPath()
@@ -68,17 +68,17 @@ function setMap(){
 // original working donut function
 function donut(expressed){
 
-  var width = 680 ,
-      height = 680 ,
+  var width = 560 ,
+      height = 560 ,
       radius = width/2;
 
    arc = d3.arc()
-      .innerRadius(150)
-      .outerRadius(200);
+      .innerRadius(120)
+      .outerRadius(180);
 
    labelArc = d3.arc()
-      .outerRadius(220)
-      .innerRadius(200);
+      .outerRadius(200)
+      .innerRadius(180);
 
     pie = d3.pie()
       .value(function(d){
@@ -176,22 +176,7 @@ function donut(expressed){
                   chartTitle2= "per 100,000 People"
                 };
 
-              // svg.append("text")
-              // .attr("x", 0)
-              // .attr("y", 0 )
-              // .attr("text-anchor", "middle")
-              // .style("font-size", "15px")
-              // .style("font-weight","bold")
-              // .html(chartTitle);
-              //
-              // svg.append("text")
-              // .attr("x", 0)
-              // .attr("y", 0 )
-              // .attr("dy","1.2em")
-              // .attr("text-anchor", "middle")
-              // .style("font-size", "15px")
-              // .style("font-weight","bold")
-              // .html(chartTitle2);
+
 
               svg.append("text")
               .attr("x", 0)
