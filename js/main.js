@@ -197,7 +197,7 @@ function donut(expressed){
           var title = d3.select("body")
           .append("div")
           .attr("class","large-title")
-          .attr("style","max-width:800px")
+          .attr("style","max-width:700px")
           .html("<h1>"+chartTitle+" " + chartTitle2 +"</h1>");
 
 
