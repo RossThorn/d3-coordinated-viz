@@ -68,8 +68,8 @@ function setMap(){
 // original working donut function
 function donut(expressed){
 
-  var width = 560 ,
-      height = 560 ,
+  var width = 570 ,
+      height = 570 ,
       radius = width/2;
 
    arc = d3.arc()
